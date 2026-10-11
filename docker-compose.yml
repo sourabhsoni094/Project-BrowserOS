@@ -1,0 +1,60 @@
+version: '3.8'
+
+services:
+  # 1. PostgreSQL Database Service
+  postgres:
+    image: postgres:16-alpine
+    container_name: browseros-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${PGUSER:-postgres}
+      POSTGRES_PASSWORD: ${PGPASSWORD:-admin}
+      POSTGRES_DB: ${PGDATABASE:-browseros}
+    ports:
+      - "5432:5432"
+    volumes:
+      - browseros_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d browseros"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # 2. Node.js + Express Backend Service
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: browseros-backend
+    restart: unless-stopped
+    environment:
+      PORT: 5000
+      NODE_ENV: production
+      DATABASE_URL: postgresql://${PGUSER:-postgres}:${PGPASSWORD:-admin}@postgres:5432/${PGDATABASE:-browseros}?schema=public
+      JWT_SECRET: ${JWT_SECRET:-browseros-super-secret-jwt-key-production-2026}
+      JWT_EXPIRES_IN: 7d
+      CORS_ORIGIN: http://localhost
+    ports:
+      - "5000:5000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: >
+      sh -c "npx prisma db push &&
+             node dist/server.js"
+
+  # 3. Nginx + React Frontend Service
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: browseros-frontend
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+
+volumes:
+  browseros_pgdata:
+    driver: local

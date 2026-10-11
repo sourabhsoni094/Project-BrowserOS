@@ -1,0 +1,113 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum VfsNodeType {
+  FILE
+  FOLDER
+}
+
+model User {
+  id            String          @id @default(uuid())
+  username      String          @unique
+  email         String          @unique
+  passwordHash  String
+  avatarUrl     String?
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  preferences   UserPreference?
+  vfsNodes      VfsNode[]
+  notes         Note[]
+  conversations Conversation[]
+
+  @@map("users")
+}
+
+model UserPreference {
+  id               String   @id @default(uuid())
+  userId           String   @unique
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  theme            String   @default("dark")
+  wallpaper        String   @default("default-wallpaper")
+  fontSize         Int      @default(14)
+  ollamaUrl        String   @default("http://localhost:11434")
+  aiModel          String   @default("llama3")
+  terminalFontSize Int      @default(13)
+  updatedAt        DateTime @updatedAt
+
+  @@map("user_preferences")
+}
+
+model VfsNode {
+  id          String      @id @default(uuid())
+  name        String
+  type        VfsNodeType
+  size        Int         @default(0) // size in bytes
+  mimeType    String?     @default("text/plain")
+  content     String?     // Text / code contents or base64 representation
+  
+  parentId    String?
+  parent      VfsNode?    @relation("VfsHierarchy", fields: [parentId], references: [id], onDelete: Cascade)
+  children    VfsNode[]   @relation("VfsHierarchy")
+
+  userId      String
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  isTrash     Boolean     @default(false)
+  trashedAt   DateTime?
+
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  @@unique([userId, parentId, name, isTrash])
+  @@index([userId, parentId, isTrash])
+  @@map("vfs_nodes")
+}
+
+model Note {
+  id        String   @id @default(uuid())
+  title     String
+  content   String   @default("")
+  category  String   @default("General")
+  isPinned  Boolean  @default(false)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, isPinned])
+  @@map("notes")
+}
+
+model Conversation {
+  id        String    @id @default(uuid())
+  title     String
+  provider  String    @default("ollama")
+  model     String    @default("llama3")
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages  Message[]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([userId, updatedAt])
+  @@map("conversations")
+}
+
+model Message {
+  id             String       @id @default(uuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  role           String       // 'user' | 'assistant' | 'system'
+  content        String
+  contextName    String?      // e.g. "welcome.txt"
+  createdAt      DateTime     @default(now())
+
+  @@index([conversationId, createdAt])
+  @@map("messages")
+}
