@@ -19,6 +19,8 @@ export interface TerminalExecutionResult {
     path: string;
   };
   exitCode: number;
+  output?: string;
+  isError?: boolean;
 }
 
 export class TerminalService {
@@ -132,7 +134,7 @@ export class TerminalService {
 
     const trimmedRaw = req.command.trim();
     if (!trimmedRaw) {
-      return { lines: [], exitCode: 0 };
+      return { lines: [], exitCode: 0, output: '', isError: false };
     }
 
     // Check for output redirection: command > filename or command >> filename
@@ -222,10 +224,16 @@ export class TerminalService {
       const outputText = result.lines.map((l) => l.text).join('\n') + '\n';
       await this.handleRedirection(userId, effectiveCwdId, redirectFile, outputText, isAppend);
       // Suppress printed stdout when redirected
-      return { lines: [], newCwd: result.newCwd, exitCode: 0 };
+      return { lines: [], newCwd: result.newCwd, exitCode: 0, output: '', isError: false };
     }
 
-    return result;
+    const output = result.lines.map((l) => l.text).join('\n');
+    const isError = result.exitCode !== 0;
+    return {
+      ...result,
+      output,
+      isError,
+    };
   }
 
   // --- Safe Command Implementations ---

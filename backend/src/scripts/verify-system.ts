@@ -59,7 +59,7 @@ async function runVerification() {
 
     // 2. VFS Sandbox & Structure
     console.log('\n[2/7] Testing Virtual Filesystem (VFS) Operations...');
-    const homeDir = await vfsService.listDirectory(testUser.id, null);
+    const homeDir = await vfsService.getDirectoryContents(testUser.id, null);
     assert(Array.isArray(homeDir.items), 'VFS Auto-provisioning Directory Tree');
 
     // Create virtual file
@@ -92,17 +92,18 @@ async function runVerification() {
     // 4. Safe Virtual Terminal Engine
     console.log('\n[4/7] Testing Terminal Command Engine in VFS Sandbox...');
     const termLs = await terminalService.execute(testUser.id, { command: 'ls' });
-    assert(!termLs.isError, 'Terminal "ls" execution');
+    assert(!termLs.isError && termLs.exitCode === 0, 'Terminal "ls" execution');
 
     const termEcho = await terminalService.execute(testUser.id, {
       command: 'echo "browseros-verified" > terminal_test.txt',
     });
-    assert(!termEcho.isError, 'Terminal output redirection "echo > file"');
+    assert(!termEcho.isError && termEcho.exitCode === 0, 'Terminal output redirection "echo > file"');
 
     const termCat = await terminalService.execute(testUser.id, {
       command: 'cat terminal_test.txt',
     });
-    assert(termCat.output.includes('browseros-verified'), 'Terminal "cat" verify written file');
+    const catOutput = termCat.output ?? termCat.lines.map((l) => l.text).join('\n');
+    assert(catOutput.includes('browseros-verified'), 'Terminal "cat" verify written file');
 
     // 5. Notes CRUD & Pinning
     console.log('\n[5/7] Testing Notes Application Service...');

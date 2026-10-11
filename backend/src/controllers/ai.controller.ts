@@ -2,6 +2,17 @@ import { Response, NextFunction } from 'express';
 import { AuthRequest } from '../middleware/auth.middleware.js';
 import { aiService } from '../services/ai.service.js';
 
+function getParamId(param: string | string[] | undefined): string | null {
+  if (Array.isArray(param)) {
+    const first = param[0];
+    return typeof first === 'string' && first.trim().length > 0 ? first.trim() : null;
+  }
+  if (typeof param === 'string' && param.trim().length > 0) {
+    return param.trim();
+  }
+  return null;
+}
+
 export class AIController {
   async listConversations(req: AuthRequest, res: Response, next: NextFunction) {
     try {
@@ -16,7 +27,12 @@ export class AIController {
   async getConversation(req: AuthRequest, res: Response, next: NextFunction) {
     try {
       const userId = req.user?.id || req.user?.userId || 'admin';
-      const conversation = await aiService.getConversation(userId, req.params.id);
+      const conversationId = getParamId(req.params.id);
+      if (!conversationId) {
+        res.status(400).json({ error: 'Conversation ID is required' });
+        return;
+      }
+      const conversation = await aiService.getConversation(userId, conversationId);
       res.json({ conversation });
     } catch (err) {
       next(err);
@@ -37,7 +53,12 @@ export class AIController {
   async deleteConversation(req: AuthRequest, res: Response, next: NextFunction) {
     try {
       const userId = req.user?.id || req.user?.userId || 'admin';
-      await aiService.deleteConversation(userId, req.params.id);
+      const conversationId = getParamId(req.params.id);
+      if (!conversationId) {
+        res.status(400).json({ error: 'Conversation ID is required' });
+        return;
+      }
+      await aiService.deleteConversation(userId, conversationId);
       res.json({ message: 'Conversation deleted successfully' });
     } catch (err) {
       next(err);

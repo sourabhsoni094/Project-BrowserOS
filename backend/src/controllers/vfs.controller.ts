@@ -25,14 +25,25 @@ const uploadSchema = z.object({
   mimeType: z.string().optional(),
 });
 
-const getNodeId = (req: AuthRequest): string =>
-  Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+const getNodeId = (req: AuthRequest): string => {
+  const param = req.params.id;
+  const id = Array.isArray(param) ? param[0] : param;
+  if (!id || typeof id !== 'string' || id.trim().length === 0) {
+    throw new AppError('Node ID is required', 400);
+  }
+  return id.trim();
+};
 
 export class VfsController {
   async list(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       if (!req.user) throw new AppError('Unauthorized', 401);
-      const parentId = (req.query.parentId as string) || null;
+      const parentQuery = req.query.parentId;
+      const parentId = typeof parentQuery === 'string' && parentQuery.trim().length > 0
+        ? parentQuery.trim()
+        : Array.isArray(parentQuery) && typeof parentQuery[0] === 'string' && parentQuery[0].trim().length > 0
+          ? parentQuery[0].trim()
+          : null;
       const result = await vfsService.getDirectoryContents(req.user.id, parentId);
       res.status(200).json({ success: true, data: result });
     } catch (err) {

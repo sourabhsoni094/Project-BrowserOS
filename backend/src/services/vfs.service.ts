@@ -209,6 +209,13 @@ console.log(greet('User'));
   }
 
   /**
+   * Retrieves directory contents (alias for getDirectoryContents)
+   */
+  async listDirectory(userId: string, parentId?: string | null) {
+    return this.getDirectoryContents(userId, parentId);
+  }
+
+  /**
    * Retrieves child files/folders of the user's Desktop directory
    */
   async getDesktopNodes(userId: string) {

@@ -2,11 +2,33 @@ import { Response, NextFunction } from 'express';
 import { AuthRequest } from '../middleware/auth.middleware.js';
 import { notesService } from '../services/notes.service.js';
 
+function getParamId(param: string | string[] | undefined): string | null {
+  if (Array.isArray(param)) {
+    const first = param[0];
+    return typeof first === 'string' && first.trim().length > 0 ? first.trim() : null;
+  }
+  if (typeof param === 'string' && param.trim().length > 0) {
+    return param.trim();
+  }
+  return null;
+}
+
+function getQueryParam(queryVal: unknown): string | undefined {
+  if (Array.isArray(queryVal)) {
+    const first = queryVal[0];
+    return typeof first === 'string' && first.trim().length > 0 ? first.trim() : undefined;
+  }
+  if (typeof queryVal === 'string' && queryVal.trim().length > 0) {
+    return queryVal.trim();
+  }
+  return undefined;
+}
+
 export class NotesController {
   async listNotes(req: AuthRequest, res: Response, next: NextFunction) {
     try {
-      const category = req.query.category as string | undefined;
-      const search = req.query.search as string | undefined;
+      const category = getQueryParam(req.query.category);
+      const search = getQueryParam(req.query.search);
       const notes = await notesService.listNotes(req.user!.userId, category, search);
       res.json({ notes });
     } catch (err) {
@@ -16,7 +38,12 @@ export class NotesController {
 
   async getNote(req: AuthRequest, res: Response, next: NextFunction) {
     try {
-      const note = await notesService.getNote(req.user!.userId, req.params.id);
+      const noteId = getParamId(req.params.id);
+      if (!noteId) {
+        res.status(400).json({ error: 'Note ID is required' });
+        return;
+      }
+      const note = await notesService.getNote(req.user!.userId, noteId);
       res.json({ note });
     } catch (err) {
       next(err);
@@ -40,8 +67,13 @@ export class NotesController {
 
   async updateNote(req: AuthRequest, res: Response, next: NextFunction) {
     try {
+      const noteId = getParamId(req.params.id);
+      if (!noteId) {
+        res.status(400).json({ error: 'Note ID is required' });
+        return;
+      }
       const { title, content, category, isPinned } = req.body;
-      const note = await notesService.updateNote(req.user!.userId, req.params.id, {
+      const note = await notesService.updateNote(req.user!.userId, noteId, {
         title,
         content,
         category,
@@ -55,7 +87,12 @@ export class NotesController {
 
   async deleteNote(req: AuthRequest, res: Response, next: NextFunction) {
     try {
-      await notesService.deleteNote(req.user!.userId, req.params.id);
+      const noteId = getParamId(req.params.id);
+      if (!noteId) {
+        res.status(400).json({ error: 'Note ID is required' });
+        return;
+      }
+      await notesService.deleteNote(req.user!.userId, noteId);
       res.json({ message: 'Note deleted successfully' });
     } catch (err) {
       next(err);
